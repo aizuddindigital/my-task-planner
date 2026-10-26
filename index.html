@@ -1,1 +1,145 @@
 
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#202c65">
+<title>My Task Planner - Cikgu Aizuddin</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f2f4fa;color:#202944;font-family:Arial,sans-serif}
+header{background:#202c65;color:white;padding:25px 18px;border-radius:0 0 22px 22px}
+h1{font-size:26px;margin:5px 0}
+header p{font-size:13px}
+main{max-width:650px;margin:auto;padding:14px}
+.stats{display:flex;gap:8px;margin-bottom:14px}
+.stat,.panel{background:white;border:1px solid #e0e5ef;border-radius:14px;padding:14px}
+.stat{flex:1;min-width:0}
+.stat small{display:block;font-size:10px;color:#68748d;margin-bottom:8px}
+.stat strong{font-size:23px}
+.panel{margin-bottom:14px}
+h2{font-size:17px;margin:0 0 12px}
+label{display:block;font-size:12px;margin:12px 0 5px}
+input,select,textarea{width:100%;padding:12px;border:1px solid #d3d9e7;border-radius:9px;background:white;font-size:15px}
+button{border:0;border-radius:9px;padding:11px;font-size:13px;font-weight:bold}
+.primary{background:#202c65;color:white;width:100%;margin-top:14px}
+.secondary{background:#e9edff;color:#202c65}
+.danger{background:#ffeded;color:#ad2828}
+.task{display:flex;gap:10px;padding:14px 0;border-bottom:1px solid #e5e8f0}
+.task:last-child{border:0}
+.task input{width:20px;height:20px;flex-shrink:0;accent-color:green}
+.taskbody{flex:1;min-width:0}
+.taskname{font-weight:bold;overflow-wrap:anywhere}
+.done .taskname{text-decoration:line-through;color:#8490a5}
+.meta{font-size:11px;color:#68748d;margin-top:7px;line-height:1.6}
+.actions{display:flex;gap:6px;margin-top:9px}
+.actions button{padding:8px}
+.empty{text-align:center;color:#68748d;padding:20px 0;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+<div>PERSONAL WORKSPACE</div>
+<h1>My Task Planner</h1>
+<p>Cikgu Aizuddin | Rancang. Susun. Selesaikan.</p>
+</header>
+<main>
+<div class="stats">
+<div class="stat"><small>SEMUA</small><strong id="total">0</strong></div>
+<div class="stat"><small>BELUM SELESAI</small><strong id="pending">0</strong></div>
+<div class="stat"><small>SELESAI</small><strong id="completed">0</strong></div>
+</div>
+<section class="panel">
+<h2 id="formTitle">+ Tambah Tugasan</h2>
+<form id="form">
+<label>Nama tugasan *</label>
+<input id="name" required maxlength="180" placeholder="Masukkan tugasan">
+<label>Tarikh akhir</label>
+<input id="date" type="date">
+<label>Keutamaan</label>
+<select id="priority">
+<option value="high">Tinggi</option>
+<option value="medium" selected>Sederhana</option>
+<option value="low">Rendah</option>
+</select>
+<label>Kategori</label>
+<input id="category" placeholder="Contoh: Sekolah, Pentadbiran">
+<label>Catatan</label>
+<textarea id="notes" rows="2" placeholder="Catatan tambahan"></textarea>
+<button class="primary" id="save" type="submit">Simpan Tugasan</button>
+<button class="secondary" id="cancel" type="button" hidden>Batal Suntingan</button>
+</form>
+</section>
+<section class="panel">
+<h2>Senarai Tugasan</h2>
+<input id="search" placeholder="Cari tugasan...">
+<label>Tapis status</label>
+<select id="filter">
+<option value="all">Semua tugasan</option>
+<option value="pending">Belum selesai</option>
+<option value="done">Selesai</option>
+</select>
+<div id="list"></div>
+<button class="secondary" id="backup" style="width:100%;margin-top:12px">Muat Turun Sandaran</button>
+</section>
+<p style="font-size:11px;color:#68748d;line-height:1.5">Data disimpan dalam pelayar peranti ini. Muat turun sandaran secara berkala untuk mengelakkan kehilangan data.</p>
+</main>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const KEY='aizuddin_task_planner_v1';
+let tasks=[],edit=null;
+try{tasks=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){}
+const ranks={high:0,medium:1,low:2};
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(tasks));return true}catch(e){alert('Data tidak dapat disimpan. Muat turun sandaran.');return false}}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function today(){let d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function dateText(s){return s?new Date(s+'T00:00:00').toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'numeric'}):'Belum ditetapkan'}
+function render(){
+$('total').textContent=tasks.length;
+$('pending').textContent=tasks.filter(t=>!t.done).length;
+$('completed').textContent=tasks.filter(t=>t.done).length;
+let q=$('search').value.toLowerCase(),f=$('filter').value;
+let arr=tasks.filter(t=>(t.name+' '+t.category).toLowerCase().includes(q)&&(f==='all'||(f==='done'?t.done:!t.done)));
+arr.sort((a,b)=>Number(a.done)-Number(b.done)||ranks[a.priority]-ranks[b.priority]||(a.date||'9999').localeCompare(b.date||'9999'));
+$('list').innerHTML=arr.length?arr.map(t=>{
+let late=!t.done&&t.date&&t.date<today();
+return '<div class="task '+(t.done?'done':'')+'"><input type="checkbox" data-check="'+esc(t.id)+'" '+(t.done?'checked':'')+'><div class="taskbody"><div class="taskname">'+esc(t.name)+'</div><div class="meta">Keutamaan: '+t.priority.toUpperCase()+'<br>Tarikh: '+dateText(t.date)+(late?' | LEWAT':'')+(t.category?'<br>Kategori: '+esc(t.category):'')+(t.notes?'<br>'+esc(t.notes):'')+'</div><div class="actions"><button class="secondary" data-edit="'+esc(t.id)+'">Sunting</button><button class="danger" data-delete="'+esc(t.id)+'">Padam</button></div></div></div>'
+}).join(''):'<div class="empty">Tiada tugasan untuk dipaparkan.</div>';
+}
+function reset(){edit=null;$('form').reset();$('priority').value='medium';$('formTitle').textContent='+ Tambah Tugasan';$('save').textContent='Simpan Tugasan';$('cancel').hidden=true}
+$('form').addEventListener('submit',e=>{
+e.preventDefault();
+let d={name:$('name').value.trim(),date:$('date').value,priority:$('priority').value,category:$('category').value.trim(),notes:$('notes').value.trim()};
+if(!d.name)return;
+if(edit)tasks=tasks.map(t=>t.id===edit?{...t,...d}:t);
+else tasks.push({...d,id:String(Date.now()),done:false});
+if(persist()){reset();render()}
+});
+$('cancel').onclick=reset;
+$('search').oninput=render;
+$('filter').onchange=render;
+$('list').addEventListener('change',e=>{
+let id=e.target.dataset.check;if(!id)return;
+tasks=tasks.map(t=>t.id===id?{...t,done:e.target.checked}:t);persist();render();
+});
+$('list').addEventListener('click',e=>{
+let b=e.target.closest('button');if(!b)return;
+if(b.dataset.edit){
+let t=tasks.find(x=>x.id===b.dataset.edit);if(!t)return;
+edit=t.id;$('name').value=t.name;$('date').value=t.date||'';$('priority').value=t.priority;$('category').value=t.category;$('notes').value=t.notes;
+$('formTitle').textContent='Sunting Tugasan';$('save').textContent='Simpan Perubahan';$('cancel').hidden=false;window.scrollTo(0,0);
+}
+if(b.dataset.delete&&confirm('Padam tugasan ini?')){tasks=tasks.filter(t=>t.id!==b.dataset.delete);persist();render()}
+});
+$('backup').onclick=()=>{
+let blob=new Blob([JSON.stringify(tasks,null,2)],{type:'application/json'});
+let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='sandaran-tugasan.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+render();
+})();
+</script>
+</body>
+</html>
+
